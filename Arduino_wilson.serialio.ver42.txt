@@ -1,0 +1,268 @@
+/* ------------------------------------------------
+ * General Purpose computer serial IO -- ver 41  4/07
+ * copyleft Stephen Wilson  http://userwww.sfsu.edu/~swilson/
+ * Created October, 2006
+ * The code activates most arduino functions
+ * (digital in, digital out, analog in, analog out)
+ * by sending ascii strings via serial communication
+ * It can be used by any program that can send & receive strings.
+ * For example, I use it in Director with the serial Xtra.
+ * The code lets the Arduino board function as an I/O device for the computer
+ * Your host program will need to prepare the strings to send
+ * and extract the data from the incoming text
+ *====
+ * send "A" =  read Arduino Analog in pins into computer 
+ * (Send ascii "A".  Arduino returns a sequence of
+ * lines with ascii encoded number of the current analog pin value 0-1024 
+ * eg  0 398
+ *  1 599
+ *  2 888
+ *  3 0
+ *  4 22
+ *  5 222
+ * and "$" to indicate end )
+ *====
+ * send "B"  = output analog values to arduino pins 9,10,11
+ * compose a string with "B" followed by 3 ascii equivalents
+ * (0-255) of values to be send
+ * eg  "B"ascii(128)ascii(255)ascii(10)
+ *==== 
+ * Send "E" = read Digital pins in from arduino into computer 
+ * You need to the adjust header to indicate which pin starts
+ * the digital output seqquence. Eg declare pin 8 to start output 
+ * means that 2-7 will  be input and 8-13 will be output.
+ * Arduino returns a string starting with letter F
+ * followed by H's and L's to indicate state followed by $ to end
+ *  eg  FHLLLHH$  - pin  2=high  3= low etc...7=high)
+ *====
+ * Send "D" = send Digital from  computer to control arduino digital pins
+ * adjust header indicates which range of digital pins to be declared output eg 8-13
+ * Send ascii "D" followed sequence of letters to indicate desired values
+ * (eg DHLLLHH  pin 8 = make high  9=low...13= high)
+ *====
+ * This routine based on SERIAL COM and other examples
+ * SERIAL COM - HANDELING MULTIPLE BYTES inside ARDUINO - 04_function development
+ * by beltran berrocal  created 16 Decembre 2005;
+ * copyleft 2005 Progetto25zero1  <http://www.progetto25zero1.com>
+ * --------------------------------------------------- */
+
+char serInString[11];  // array that will hold the  bytes of the incoming string. 
+// you need to adjust so it can hold the max values to be expected
+// eg if you declared 7 digital in it would be 8 to 
+// include first id letter and the following 7 H's & L's
+char serOutString[11]; 
+// array to hold string of arduino read values of digital pin
+char anOutString[6]; 
+// array hold output of analog out -- not used
+
+int val=0;  // temporary value for inputs & outputs
+int val4=0;  //temp
+char val2=2;
+char val3=0;
+char val1=0;
+int p=0; // temporary value for pin
+int digout = 8;  // start pin for digital out sequence
+// here 8-13 will be output and 2-7 will be read in
+// can be changed depending on your needs
+int digseq = 6;  //temp value for number of output pins
+
+
+
+//read a string from the serial and store it in an array
+//you must supply the array variable
+void readSerialString (char *strArray) {
+  int i = 0;
+  if(Serial.available()) {    
+    //Serial.print("reading Serial String: ");  //optional: for confirmation
+    while (serialAvailable()){            
+      strArray[i] = Serial.read();
+      i++;
+      // Serial.print(strArray[(i-1)]);         //optional: for confirmation
+    }
+    // Serial.println();                          //optional: for confirmation
+  }      
+}
+
+// cleanout the arrays
+void cleanup(char *strArray){
+  for (int i=0; i= 8; i++){
+    serInString[i]=0;
+    serOutString[i]=0;
+  }
+}
+
+
+//Print the whole string at once - will be performed only if thers is data inside it
+//you must supply the array variable
+void printSerialString(char *strArray) {
+  int i=0;
+  if (strArray[i] != 0) {     
+    while(strArray[i] != 0) {
+      //Serial.print( strArray[i] );
+      strArray[i] = 0;                  // optional: flush the content
+      i++;          
+    }
+  }
+} 
+
+//utility function to know wither an array is empty or not
+boolean isStringEmpty(char *strArray) {
+  if (strArray[0] == 0) {
+    return true;
+  } 
+  else {
+    return false;
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  // digout starts at digout (8 in this example)
+  for (int i=digout; i <= 13; i++){
+    pinMode(i, OUTPUT);
+  }
+  for (int i=2; i <= digout-1; i++){
+    pinMode(i, INPUT);
+  }
+}
+
+
+
+void loop () {
+  //simple feedback from Arduino that it is working - optional
+  //Serial.println("Hello World");
+
+  //read the serial port and create a string out of what you read
+  readSerialString(serInString);
+
+
+
+  if( isStringEmpty(serInString) == false) {
+    //it will do the following if there actually is some info
+
+    //--------
+    // "D" = code for digital out to arduino looks for D as first 
+    // character in the input string (ascii 68)
+    // then looks for H & L letters
+    // for example computer sends DHLHHLL
+    if (serInString[0]==68)  
+      digseq= 13-digout+1; // how many output pins
+
+    {
+
+      for (int i=1; i <= digseq; i++){
+        p = i+digout-1;  // output to the right pins
+        // for example if output starts at pin 8
+        // then second item in string will be applied to pin 1+7
+        val=serInString[i];  // what is the letter
+        // if it is an H (high - ascii 72- then subtract 71 to make high)
+        // 
+        // if it is a L (low - ascii 76- then subtract 76 to make low)
+        if (val == 72)
+        { 
+          val = 1;
+        }
+        else
+        {
+          val=0;
+        }
+
+        digitalWrite(p, val);// output to the pin
+
+      } 
+      //Serial.println("digoutconfirm"); 
+    }
+
+
+    //-------
+    // "E" (ascii69) = code for read & send arduino digital state to computer 
+    if (serInString[0]==69)  // just send an E from computer
+
+    {
+
+      serOutString[0] =70;  // F for return to computer
+      // read pins from 2 to one below digout
+      serOutString[1] =65;
+      
+      for (int i=2; i <= digout-1; i++){
+       val = digitalRead(i);
+        if (val == HIGH)
+        {
+          //val = digitalRead(i);  
+          //val4=i-1;
+          serOutString[i-1]=72; //H for high
+          // Serial.println("high");
+        }
+
+        if (val == LOW) 
+        {
+         // val = digitalRead(i);  
+          //val4=i-1;
+          serOutString[i-1]=76; //L for low
+          // Serial.println("low");
+        }
+
+
+
+
+      } 
+      
+      Serial.print(serOutString); 
+      Serial.println("$");// for end
+    }
+
+    //-----------
+    // A (asci65)  = code for send analog read pins to computer
+    if (serInString[0]==65)  
+    {
+      //Serial.println("F");
+      for (int i=0; i <= 5; i++){
+        val = analogRead(i); 
+        val2=val/4;
+        anOutString[i]=val2;
+        Serial.println(i);
+        Serial.println(val,DEC); 
+        //Serial.println(val2,DEC);  // 1 byte version 
+      } 
+
+
+      //Serial.println(anOutString);
+      Serial.println("$");
+    }
+
+    //----------
+    // B = code for analog sent to control arduino analog out
+    if (serInString[0]==66)  
+    {
+      val1=serInString[1];  //pwm0 - pin9
+      val2=serInString[2]; //pwm1 - pin10
+      val3=serInString[3];  //pwm2 - pin11
+      //Serial.println(val1);
+      // Serial.println(val2);
+      //Serial.println(val3);
+      analogWrite(9,val1);
+      analogWrite(10,val2);
+      analogWrite(11,val3);
+      //Serial.println("anaconfirm");
+    }
+
+
+    //  Serial.println();
+  }
+
+
+
+
+
+  // Serial.println();  
+  //cleans out arrays
+  for (int i=0; i <= 11; i++){
+
+    serInString[i]=0;
+    serOutString[i]=0;
+    anOutString[i]=0;
+
+  }
+  //slows down the visualization in the terminal
+  delay(200);
+}
