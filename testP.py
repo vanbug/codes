@@ -1,4 +1,5 @@
 import math
+height=9
 class exClass:
 	man="Sukhdeep"
 	height=6
@@ -77,6 +78,7 @@ cObject=explainingConstructors()
 
 def testModu():
 	print 'this is nice inne!!'
+	print height
 
 ########################################################################
 # Reloading Modules : Once a module is loaded in a file and some value is changed back there in back module, new value is not displayed as the module is already loaded and reload is used to get out of this.
@@ -86,5 +88,24 @@ def testModu():
 # Getting module info, first import it and then get the info
 
 dir(math)	 # Functions present in the module
-help(math)	 # Detailed look into the module
+#help(math)	 # Detailed look into the module
 math.__doc__ # Short info about the module
+
+########################################################################
+# File handling with python : 'a' - append, 'w' - write, 'r' -read
+fileObj=open('/home/sukhdeepsingh/Documents/Research/projects/Facelet/Codes/yo.html','a')
+fileObj.write("Hi there \n")
+fileObj.close()
+fileObj=open('/home/sukhdeepsingh/Documents/Research/projects/Facelet/Codes/yo.html','r')
+#print fileObj.read()
+#print fileObj.readline()
+#print fileObj.readlines()
+# Editing Lines
+linelist=fileObj.readlines()
+print linelist[6] # Prints the specified line.
+linelist[6] = '# Yo man' # Changes the content of the following line
+print linelist[6]
+fileObj.close()
+fileObj=open('/home/sukhdeepsingh/Documents/Research/projects/Facelet/Codes/yo.html','a')
+fileObj.writelines(linelist)
+fileObj.close()
